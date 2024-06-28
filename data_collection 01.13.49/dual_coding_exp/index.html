@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <title>Memory Experiment</title>
+        <script src="jspsych/jspsych.js"></script>
+        <script src="jspsych/plugin-external-html.js"></script>
+        <script src="jspsych/plugin-html-keyboard-response.js"></script>
+        <script src="jspsych/plugin-preload.js"></script>
+        <script src="jspsych/plugin-html-button-response.js"></script>
+        <script src="jspsych/plugin-survey-multi-choice.js"></script>
+        <script src="jspsych/plugin-survey-text.js"></script>
+        <script src="jspsych/plugin-survey.js"></script>
+        <script src="jspsych/plugin-call-function.js"></script>
+        <script src="./VVIQ.js"></script>
+        <link href="jspsych/jspsych.css" rel="stylesheet" type="text/css" />
+        <link href="custom_css.css" rel="stylesheet" type="text/css" />
+        <style>
+            .bold {
+                font-weight: bold;
+            }
+            .big-text {
+                font-size: 36px;
+            }
+        </style>
+    </head>
+    <body></body>
+    <script>
+
+        /* initialize jsPsych */
+        var jsPsych = initJsPsych({
+            on_finish: function(){
+                jsPsych.data.displayData();
+                window.location.href = "https://github.com/macs30123-s24/course-materials";
+            }
+        });
+
+        var timeline = [];
+
+
+        // Collect Email Address and Future Contact Consent
+        var EmailAddressInput = {
+            type: jsPsychHtmlButtonResponse,
+            stimulus: '<p>Please enter your <b>email address</b> below so that we can send your e-gift card following the study.</p>' +
+                    '<input type="text" id="EmailAddress" name="EmailAddress" style="width: 100%;" required>' +
+                    '<br><br>' +
+                    '<div>' +
+                    '<label for="futureContact">Please check the box below if you would like to be contacted for future research studies.<br> Checking the box does not impact your eligibility to participate in the current study.</label>' +
+                    '<br>' +
+                    '<input type="checkbox" id="futureContact" name="futureContact">' +
+                    '<br><br>' +
+                    '</div>',
+            choices: ['Continue'],
+            on_load: function() {
+                const continueButton = document.querySelector('.jspsych-btn');
+                continueButton.disabled = true;
+                const emailInput = document.querySelector('#EmailAddress');
+                const futureContactCheckbox = document.querySelector('#futureContact');
+
+                emailInput.addEventListener('input', function() {
+                    // Enable the Continue button only if an email address has been entered
+                    continueButton.disabled = this.value.trim().length === 0;
+                });
+
+                // Set up listeners to immediately capture changes and store them
+                emailInput.addEventListener('change', function() {
+                    jsPsych.data.addProperties({
+                        EmailAddress: this.value.trim()
+                    });
+                });
+
+                futureContactCheckbox.addEventListener('change', function() {
+                    jsPsych.data.addProperties({
+                        FutureContactConsent: this.checked
+                    });
+                });
+            },
+            on_finish: function(data) {
+                // Send the data to the server
+                const emailData = {
+                    EmailAddress: jsPsych.data.get().values()[0].EmailAddress,
+                    FutureContactConsent: jsPsych.data.get().values()[0].FutureContactConsent || false
+                };
+                sendDataToServer(emailData);
+            }
+        };
+
+        // Present welcome screen as the landing page
+        var welcome_screen = {
+            type: jsPsychExternalHtml,
+            url: "./welcome_screen.html",
+            cont_btn: "start"
+        };
+
+        // Collect demographic information using external survey .html file
+        var demographics_survey_procedure = {
+            type: jsPsychSurvey,
+            css_classes: ['demographics_CSS'],
+            show_question_numbers: "on",
+            pages: [
+                [
+                {
+                    type: 'html',
+                    prompt: "<br><br><p style='text-align: centre;'><b>Demographics Survey</b></p><br><p>Below, we will ask you to please declare some basic demographics.</p>",
+                },
+                {
+                    type: 'text',
+                    prompt: "What is your age (in years)?", 
+                    name: 'Q1_Age', 
+                    textbox_columns: 5,
+                    required: true,
+                },
+                {
+                    type: 'multi-choice',
+                    prompt: 'What sex were you assigned at birth?', 
+                    options: ['Female', 'Male', 'Other/No Response'],
+                    name: 'Q2_Sex',
+                    required: true,
+                    option_reorder: "none"
+                },
+                {
+                    type: 'multi-choice',
+                    prompt: 'What is your ethnicity?', 
+                    options: ['Hispanic/Latino', 'Not Hispanic/Latino', 'No Response'],
+                    name: 'Q3_Ethnicity',
+                    required: true,
+                    option_reorder: "none"
+                },
+                {
+                    type: 'multi-choice',
+                    prompt: 'What is your race?', 
+                    options: ['American Indian/Alaska Native', 'Asian', 'Native Hawaiian/Pacific Islander', 'Black/African American', 'White/Caucasian', 'More than one race', 'No Response'],
+                    name: 'Q4_Race',
+                    required: true,
+                    option_reorder: "none"
+                },
+                {
+                    type: 'html',
+                    prompt: "<br><br>",
+                },
+                ]
+            ],
+            on_finish: function(data) {
+                var dat = jsPsych.data.getLastTrialData().values()[0];
+                dat.Age = dat.response['Q1_Age'];
+                dat.Sex = dat.response['Q2_Sex'];
+                dat.Ethnicity = dat.response['Q3_Ethnicity'];
+                dat.Race = dat.response['Q4_Race'];
+                jsPsych.data.addProperties(dat);
+                
+                // Send demographic data to the server
+                const demoData = {
+                    Age: dat.Age,
+                    Sex: dat.Sex,
+                    Ethnicity: dat.Ethnicity,
+                    Race: dat.Race
+                };
+                sendDataToServer(demoData);
+            }
+            };
+
+            var survey_instruction = {
+                type: jsPsychHtmlButtonResponse,
+                stimulus: `<p>Next, we will ask you to respond to a questionnaire about your mental imagery.</p>
+                        <p>Click the button below to begin.</p>`,
+                choices: ["→"]
+            };
+
+            // Attention check questions
+            var attention_check = {
+                type: jsPsychSurveyMultiChoice,
+                css_classes: ['attention_check_CSS'],
+                questions: [
+                    {
+                        prompt: `<p>The study is almost complete but we have a few more more questions to ask.</p>
+                                <br><p>We would like to know whether your participation in this experiment occurred under <b>'ideal'</b> conditions (e.g., you were paying attention, understood the tasks, and were not distracted).</p>
+                                <p>Some examples of <b>'unideal'</b> conditions include: you did not understand one or more of the tasks, you were distracted, you didn't try your best, etc.</p>
+                                <p>If you feel that you paid attention throughout the study and were not distracted, but for some reason you feel as though you performed poorly on one or more of the tasks, that is still considered to be 'ideal' conditions.</p>
+                                <p>Your participation credit is already secured at this point and there are no penalties based on your response, so please answer honestly.</p>`,
+                        name: 'attention_check', 
+                        options: ["My participation occurred with 'ideal' conditions.", "My participation occurred with 'unideal' conditions."],
+                        required: true,
+                        horizontal: false
+                    }
+                ],
+                on_finish: function(data) {
+                    var ideal = data.response.attention_check === "My participation occurred with 'ideal' conditions." ? 1 : 0;
+                    jsPsych.data.addProperties({
+                        IdealParticipation: ideal
+                    });
+                }
+            };
+
+            var attention_check_block = {
+                type: jsPsychSurveyMultiChoice,
+                css_classes: ['attention_check_CSS'],
+                questions: [
+                    {
+                        prompt: '<p>Which of these is <b>not</b> a type of visual content you studied in the experiment?</p>',
+                        name: 'attention_check_block', 
+                        options: ["Pictures", "Abstract words", "Concrete words", "Numbers", "Symbols"],
+                        required: true,
+                        horizontal: false
+                    }
+                ],
+                on_finish: function(data) {
+                    jsPsych.data.addProperties({
+                        AttentionCheckTask: data.response.attention_check_block
+                    });
+                }
+            };
+            
+       
+        // Organize the timeline
+        timeline.push(EmailAddressInput);
+
+        timeline.push(welcome_screen);
+
+        timeline.push(survey_instruction);
+
+        timeline.push(VVIQ_survey);
+
+        timeline.push(attention_check);
+
+        timeline.push(attention_check_block);
+
+        timeline.push(demographics_survey_procedure);
+
+
+        function sendDataToServer(data) {
+            var xhr = new XMLHttpRequest();
+            xhr.open('POST', './write_data.php', true);
+            xhr.setRequestHeader('Content-Type', 'application/json');
+            xhr.send(JSON.stringify(data));
+        }
+
+        function runPythonScript() {
+            var xhr = new XMLHttpRequest();
+            xhr.open('POST', './run_python_script.php', true);
+            xhr.onload = function() {
+                if (xhr.status === 200) {
+                    console.log('Python script executed successfully');
+                } else {
+                    console.error('Error executing Python script');
+                }
+            };
+            xhr.send();
+        }
+
+        timeline.push({
+            type: jsPsychCallFunction,
+            func: function() {
+                var data = jsPsych.data.get().values()[0];
+                console.log(data);
+                sendDataToServer(data);
+                runPythonScript();
+            }
+        });
+
+    
+        jsPsych.run(timeline);
+    
+    </script>
+</html>

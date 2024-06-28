@@ -1,0 +1,8 @@
+
+/* CUSTOM STUFF BELOW  */
+
+.demographics_CSS {
+        padding: 0% 0% 20% 0%; text-align: left; width: 60%; color: black;} /* Set the text to align left and constrain width only when this CSS style is called, which is during the demographics procedure. */
+
+.attention_check_CSS {
+    width: 50%;} /* Set to constrain width only when this CSS style is called, which is during the attention_check procedure. */
